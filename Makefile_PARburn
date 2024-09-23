@@ -1,0 +1,62 @@
+#
+# Makefile for Burner
+#
+BUILD_ID = "`date +%Y%m%d%H`"
+
+
+CFLAGS = -g3 -O0 -Wall -Wextra -DBUILD_ID=$(BUILD_ID)
+LIBS = -lm
+
+CC ?= gcc
+
+ifeq ($(OS),Windows_NT)
+	ifeq ($(shell uname -o), Msys)
+		OS_TYPE := MSYS
+	else ifeq ($(shell uname -o), Cygwin)
+		OS_TYPE := CYGWIN
+	endif
+endif
+
+# Now set flags or variables based on the detected OS
+ifeq ($(OS_TYPE),MSYS)
+	# Check for MinGW compilers
+	ifeq ($(shell command -v x86_64-w64-mingw32-gcc 2>/dev/null),)
+		ifeq ($(shell command -v i386-mingw32-gcc 2>/dev/null),)
+			$(error Neither x86_64-w64-mingw32-gcc nor i386-mingw32-gcc found)
+		else
+			CC = i386-mingw32-gcc
+		endif
+	else
+		CC = x86_64-w64-mingw32-gcc
+	endif
+else ifeq ($(OS_TYPE),CYGWIN)
+	EXTENSION=.exe
+endif
+
+#To cross-compile, check the $CC
+ifneq ($(findstring mingw32, $(CC)),)
+	LIBS += -lws2_32 -lwsock32 -lgdi32 -luser32 -lcfgmgr32 -lsetupapi -lcomctl32
+	EXTENSION=.exe
+endif
+
+OBJS = util.o \
+       main.o \
+       platform-ag101p.o \
+       smcflash-IntelJ3.o \
+       smcflash-Micron.o
+
+.PHONY: all clean
+.INTERMEDIATE: $(OBJS)
+
+all: PAR_burn
+
+PAR_burn: $(OBJS)
+	$(CC) -o $@ $(CFLAGS) $(OBJS) $(LIBS)
+	strip PAR_burn$(EXTENSION)
+
+clean:
+	rm -f PAR_burn PAR_burn.exe *.o
+
+%.o:%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
